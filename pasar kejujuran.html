@@ -85,8 +85,9 @@
             <span style="font-size: 11px; color: #666;">PIN LOKASI BERIKUTNYA</span><br>
             <b id="pin-code" style="font-size: 32px; letter-spacing: 5px;">0000</b>
         </div>
-	<button class="btn" style="margin-top: 20px; background-color: #2ecc71;" onclick="window.parent.backToMap()">
-       	    KEMBALI KE PETA
+	<button class="btn" style="margin-top: 20px; background-color: #2ecc71;" onclick="kirimDataKePeta()">
+    	    KEMBALI KE PETA
+	</button>
     	</button>
     </div>
 
@@ -99,6 +100,18 @@
 </div>
 
 <script>
+    /* --- SISTEM AUDIO --- */
+    const audio = {
+    	bgm: new Audio('bgm_game.mp3'),
+    	benar: new Audio('benar.mp3'),
+    	salah: new Audio('salah.mp3'),
+    	menang: new Audio('menang.mp3'),
+    	salamPria: new Audio('salam_pria.mp3'),
+    	salamWanita: new Audio('salam_wanita.mp3')
+    };
+    audio.bgm.loop = true;
+    audio.bgm.volume = 0.4;
+
     let amanah = 100, berkah = 100, currentQ = 0, shuffledQuiz = [];
     let phase = "SCALE", targetW = 0, currentW = 0, price = 0, buyerPay = 0, currentChange = 0;
     const products = [{n:"Apel", i:"apel.png"}, {n:"Beras", i:"beras.png"}, {n:"Jeruk", i:"jeruk.png"}];
@@ -119,6 +132,7 @@
         document.getElementById('quiz-bg-layer').style.display = 'block';
         document.getElementById('quiz-overlay').style.display = 'flex';
         renderQuestion();
+	audio.bgm.play().catch(e => console.log(e)); // PLAY MUSIK
     }
 
     function renderQuestion() {
@@ -131,12 +145,23 @@
             const b = document.createElement('button'); b.className = 'q-btn'; b.innerText = opt;
             b.onclick = () => {
                 if (opt === q.c) {
+                    // --- SUARA JAWABAN BENAR ---
+                    audio.benar.currentTime = 0;
+                    audio.benar.play();
+                    
                     currentQ++;
                     if (currentQ < 5) renderQuestion();
                     else showPedagangSuccess();
                 } else {
-                    alert("Salah! Adab adalah utama dalam dagang. Ulangi kuis!");
-                    location.reload();
+                    // --- SUARA JAWABAN SALAH ---
+                    audio.salah.currentTime = 0;
+                    audio.salah.play();
+                    
+                    // Beri jeda sedikit sebelum alert agar suara terdengar
+                    setTimeout(() => {
+                        alert("Salah! Adab adalah utama dalam dagang. Ulangi kuis!");
+                        location.reload();
+                    }, 500); 
                 }
             };
             optBox.appendChild(b);
@@ -160,8 +185,17 @@
         if (amanah >= 140 && berkah >= 100) { showWin(); return; }
         phase = "SCALE"; currentW = 0;
         let p = products[Math.floor(Math.random() * products.length)];
-        document.getElementById('buyer-char').src = buyers[Math.floor(Math.random() * buyers.length)];
-        targetW = [0.9, 1.3, 1.6, 0.7][Math.floor(Math.random() * 3)];
+        const chosenBuyer = buyers[Math.floor(Math.random() * buyers.length)];
+        document.getElementById('buyer-char').src = chosenBuyer;
+
+        if (chosenBuyer.includes('laki') || chosenBuyer.includes('bapak')) {
+            audio.salamPria.currentTime = 0; 
+            audio.salamPria.play().catch(e => console.log("Gagal putar suara pria", e));
+    	} else {
+            audio.salamWanita.currentTime = 0;
+            audio.salamWanita.play().catch(e => console.log("Gagal putar suara wanita", e));
+    	}
+	targetW = [0.9, 1.3, 1.6, 0.7][Math.floor(Math.random() * 3)];
         price = targetW * 15000;
         document.getElementById('buyer-bubble').innerText = `Saya mau beli ${targetW}kg ${p.n}.`;
         document.getElementById('tool-label').innerText = "TIMBANGAN";
@@ -262,16 +296,19 @@
         window.generatedPin = generatedPin.toString(); 
     }
 
-    // --- TAMBAHKAN FUNGSI INI DI PALING BAWAH SCRIPT ---
-    window.parent.backToMap = function() {
-        // Kirim data ke Index2
-        window.parent.postMessage({
-            type: 'FINISH_PASAR',
+   // Fungsi lokal untuk mengirim data ke index.html
+   function kirimDataKePeta() {
+    	// Ambil PIN yang sedang tampil
+    	const currentPin = document.getElementById('pin-code').innerText;
+    
+    	// Kirim pesan ke parent (index.html)
+    	window.parent.postMessage({
+       	    type: 'FINISH_PASAR', // Tipe pesan ini harus sesuai dengan yang ditangkap index.html
             amanah: amanah,
             berkah: berkah,
-            pin: document.getElementById('pin-code').innerText
-        }, '*');
-    };
+            pin: currentPin
+    	}, '*');
+    }
 
     function updateStatus() {
         document.getElementById('val-amanah').innerText = amanah;
