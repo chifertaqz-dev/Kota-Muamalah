@@ -106,6 +106,17 @@
 </div>
 
 <script>
+    const audio = {
+    	bgm: new Audio('bgm_game2.mp3'),
+    	benar: new Audio('benar.mp3'),
+    	salah: new Audio('salah.mp3'),
+    	menang: new Audio('menang.mp3'),
+    	salamPria: new Audio('salam_pria.mp3'),
+    	salamWanita: new Audio('salam_wanita.mp3')
+    };
+    audio.bgm.loop = true;
+    audio.bgm.volume = 0.4;
+
     /* --- ANIMASI TYPEWRITER --- */
     function typeWriter(text, elementId, callback) {
         const element = document.getElementById(elementId);
@@ -133,6 +144,16 @@
     let amanah = parseInt(params.get('amanah')) || 100;
     let berkah = parseInt(params.get('berkah')) || 100;
     
+    // --- TAMBAHAN PERBAIKAN ---
+    // Simpan skor awal saat masuk
+    const startAmanah = amanah; 
+    // Target kemenangan adalah skor awal + 50 poin
+    const targetAmanah = startAmanah + 50; 
+    // Batas minimal untuk dianggap sukses (bad ending vs good ending)
+    const minSuccess = startAmanah + 40;
+    // --------------------------
+
+        
     let currentQ = 0;
     let quizTimer = 60;
     let timerInterval;
@@ -156,7 +177,8 @@
     ];
 
     function initQuiz() {
-        document.getElementById('start-quiz-btn').style.display = 'none';
+        audio.bgm.play().catch(e => console.log("Musik diblokir browser:", e));
+	document.getElementById('start-quiz-btn').style.display = 'none';
         document.getElementById('msg-bubble').style.display = 'none'; // Sembunyikan bubble saat kuis
         document.getElementById('quiz-overlay').style.display = 'block';
         document.getElementById('quiz-box').style.display = 'block';
@@ -188,33 +210,59 @@
     }
 
     function checkQuizAnswer() {
-        const selected = Array.from(document.querySelectorAll('#opt-grid input:checked')).map(i => i.value);
-        const correct = rawQuiz[currentQ].c;
-        const isCorrect = selected.length === 3 && selected.every(val => correct.includes(val));
-        if(isCorrect) {
+    	const selected = Array.from(document.querySelectorAll('#opt-grid input:checked')).map(i => i.value);
+    	const correct = rawQuiz[currentQ].c;
+    	const isCorrect = selected.length === 3 && selected.every(val => correct.includes(val));
+
+    	if(isCorrect) {
+            audio.benar.currentTime = 0;
+            audio.benar.play();
             currentQ++;
-            if(currentQ < 5) renderQuestion();
-            else finishQuiz();
-        } else {
-            alert("Jawaban salah! Kuis diulang dari awal.");
-            currentQ = 0; renderQuestion();
-        }
-    }
+            if(currentQ < 5) {
+            	renderQuestion();
+            } else {
+            	finishQuiz();
+            }
+    	} else {
+            audio.salah.currentTime = 0;
+            audio.salah.play();
+        
+            // --- PASTIKAN STRUKTUR INI BENAR ---
+            setTimeout(() => {
+                alert("Jawaban salah! Kuis diulang dari awal.");
+                currentQ = 0; 
+                renderQuestion();
+            }, 500); 
+       	} // Penutup ELSE
+    } // Penutup FUNGSI
 
     function finishQuiz() {
-        clearInterval(timerInterval);
-        document.getElementById('quiz-box').style.display = 'none';
-        document.getElementById('quiz-overlay').style.display = 'none';
-        
-        const bubble = document.getElementById('msg-bubble');
-        bubble.style.display = 'block';
-        bubble.style.top = '40%'; // Posisi sedikit disesuaikan
+    	clearInterval(timerInterval);
+    
+    	// 1. Sembunyikan kotak kuis
+    	document.getElementById('quiz-box').style.display = 'none';
+    	document.getElementById('quiz-overlay').style.display = 'none';
+    
+    	// 2. Munculkan pesan narasi
+    	const bubble = document.getElementById('msg-bubble');
+    	bubble.style.display = 'block';
 
-        typeWriter("Selamat! Kamu memahami rukun jual beli. Mari mulai bekerja di gudang Paket Berkah. Tarik barang ke toko yang sesuai!", "msg-bubble", () => {
-            document.getElementById('start-quiz-btn').innerText = "LANJUTKAN PERMAINAN";
-            document.getElementById('start-quiz-btn').style.display = 'block';
-            document.getElementById('start-quiz-btn').onclick = startMiniGame;
-        });
+    	typeWriter("Selamat! Kamu memahami rukun jual beli. Mari mulai bekerja di gudang Paket Berkah. Tarik barang ke toko yang sesuai!", "msg-bubble", () => {
+            // Tampilkan tombol untuk pindah ke Mini Game
+            const btn = document.getElementById('start-quiz-btn');
+            btn.innerText = "LANJUTKAN KE GUDANG";
+            btn.style.display = 'block';
+        
+            // KETIKA TOMBOL DIKLIK: Pindah Layer dan Jalankan Game
+            btn.onclick = () => {
+            	// Sembunyikan layer kuis secara total
+            	document.getElementById('quiz-layer').classList.remove('active');
+            	// Tampilkan layer game (Canvas)
+            	document.getElementById('game-layer').classList.add('active');
+            	// Jalankan logika game
+            	startMiniGame(); 
+            };
+   	 });
     }
 
     /* --- MINI GAME LOGIC --- */
@@ -270,6 +318,14 @@
         const item = pool[Math.floor(Math.random() * pool.length)];
         const pt = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
         const char = ['p1', 'p2'][Math.floor(Math.random() * 2)];
+	
+        if (char.includes('p2')) {
+            audio.salamPria.currentTime = 0; 
+            audio.salamPria.play().catch(e => console.log("Gagal putar suara pria", e));
+    	} else {
+            audio.salamWanita.currentTime = 0;
+            audio.salamWanita.play().catch(e => console.log("Gagal putar suara wanita", e));
+    	}
         orders.push({ x: pt.x, y: pt.y, homeX: pt.x, homeY: pt.y, item: item.id, cat: item.cat, char: char, status: 'pending', timer: 0, processedImg: null });
     }
 
@@ -323,7 +379,7 @@
         }
 
         timeLeft -= 1/60;
-        if(timeLeft <= 0 || amanah >= 150) endGame();
+        if(timeLeft <= 0 || amanah >= targetAmanah) endGame();
         else requestAnimationFrame(update);
     }
 
@@ -362,7 +418,7 @@
 
     function endGame() {
         gameActive = false; document.getElementById('overlay').style.display = 'flex';
-        if(amanah >= 140) {
+        if(amanah >= minSuccess) {
             document.getElementById('over-title').innerText = "ALHAMDULILLAH!";
             document.getElementById('over-msg').innerText = "Kamu pedagang online yang sangat amanah!";
             document.getElementById('pin-box').style.display = 'block';
