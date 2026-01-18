@@ -20,7 +20,6 @@
             box-shadow: 0 0 50px rgba(0,0,0,1); 
         }
 
-        /* Intro & Outro Screen */
         .full-screen-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: url('balai.png') no-repeat center; background-size: cover;
@@ -33,14 +32,8 @@
             font-weight: bold; color: #333; position: relative; font-size: 14px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-family: 'Arial', sans-serif;
         }
-	#intro-btn {
-    	    position: absolute;
-    	    bottom: 40px;     /* ubah sesuai selera */
-    	    left: 50%;
-    	    transform: translateX(-50%);
-	}
+        #intro-btn { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); }
 
-        /* HUD */
         #status-bar { 
             position: absolute; top: 10px; width: 90%; left: 1%; 
             display: flex; justify-content: space-between; 
@@ -56,10 +49,9 @@
 
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
 
-        /* Kontrol: Coklat & Marun */
         #controls-row { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 18px; z-index: 100; }
         .ctrl-btn { 
-            width: 40px; height: 40px; background: var(--light-brown); 
+            width: 45px; height: 45px; background: var(--light-brown); 
             border: 3px solid var(--maroon); border-radius: 12px; 
             display: flex; justify-content: center; align-items: center; 
             font-size: 28px; color: var(--maroon); cursor: pointer; user-select: none;
@@ -67,29 +59,17 @@
         }
         .ctrl-btn:active { transform: translateY(3px); box-shadow: none; }
 
-        /* Kuis Overlay */
         .overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.95); z-index: 500; display: none; 
             flex-direction: column; justify-content: center; align-items: center; 
             padding: 0px; color: white;
         }
-        #q-text { 
-            font-size: 14px; margin-bottom: 20px; line-height: 1.4;
-            text-align: center; width: 90%; font-family: 'Arial', sans-serif; 
-            max-height: 40vh; overflow-y: auto; /* Memastikan soal panjang tetap in-frame */
-        }
-        .q-btn { width: 90%; padding: 12px; margin: 12px 0; border: 2px solid #fff; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; color: #fff; background: #34495e; text-align: center; }
+        #q-text { font-size: 14px; margin-bottom: 20px; text-align: center; width: 90%; font-family: 'Arial', sans-serif; }
+        .q-btn { width: 90%; padding: 12px; margin: 8px 0; border: 2px solid #fff; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; color: #fff; background: #34495e; }
 
-	#q-options {
-   	    width: 100%;
-    	    display: flex;
-            flex-direction: column;
-            align-items: center;  /* tombol benar-benar tengah */
-        }
-
-        @keyframes blink-green { 0%, 100% { background: var(--primary); } 50% { background: #fff; color: #000; } }
         .blink-correct { animation: blink-green 0.2s 3; }
+        @keyframes blink-green { 0%, 100% { background: var(--primary); } 50% { background: #fff; color: #000; } }
 
         #streak-msg { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: var(--highlight); font-weight: bold; font-size: 24px; text-shadow: 2px 2px 0 #000; z-index: 200; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center; width: 90%; }
         .action-btn { background: var(--maroon); color: white; border: none; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer; }
@@ -107,7 +87,7 @@
     <div id="outro-screen" class="full-screen-overlay" style="display: none; opacity: 0; transition: opacity 2s;">
         <img src="crt_wali.png" class="char-wali">
         <div class="speech-bubble" id="outro-text"></div>
-        <button class="action-btn" onclick="location.reload()">Main Lagi</button>
+        <button class="action-btn" id="outro-finish-btn">LIHAT HASIL AKHIR</button>
     </div>
 
     <div id="status-bar">
@@ -134,11 +114,21 @@
     <div id="quiz-overlay" class="overlay">
         <h2 id="q-title" style="color:var(--highlight); font-size: 18px;">KUIS MUAMALAH</h2>
         <p id="q-text"></p>
-        <div id="q-options" style="width:100%"></div>
+        <div id="q-options" style="width:100%; display: flex; flex-direction: column; align-items: center;"></div>
     </div>
 </div>
 
 <script>
+    const audio = {
+    	bgm: new Audio('audio/bgm_game3.mp3'),
+    	benar: new Audio('audio/benar.mp3'),
+    	salah: new Audio('audio/salah.mp3'),
+    	menang: new Audio('audio/menang.mp3'),
+    	setan: new Audio('audio/setan.mp3'),
+    };
+    audio.bgm.loop = true;
+    audio.bgm.volume = 0.4;
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 360; canvas.height = 640;
@@ -154,8 +144,8 @@
     const imgs = {};
     for(let k in assets) { imgs[k] = new Image(); imgs[k].src = assets[k]; }
 
-    // DATA KUIS LENGKAP (1-10)
-    const quizPaket = [
+    // DATA KUIS (Akan dikelola agar tidak berulang)
+    let quizPaket = [
         { q: "Yang termasuk contoh riba dalam hutang piutang adalah...", a: ["Meminjam uang dengan tambahan bunga tertentu", "Meminjam uang tanpa biaya tambahan", "Meminjam barang sejenis", "Membantu tanpa imbalan"], c: 0 },
         { q: "Firman Allah SWT yang melarang riba terdapat dalam surat...", a: ["QS. Al-Baqarah ayat 275", "QS. An-Nisa' ayat 34", "QS. Al-Hujurat 13", "QS. Ar-Rum 21"], c: 0 },
         { q: "Secara bahasa Al Bay'u artinya...", a: ["Mengambil", "Memberi", "Menolak", "Menerima"], c: 0 },
@@ -165,28 +155,47 @@
         { q: "Sikap tidak amanah dapat mengakibatkan...", a: ["Hilangnya kepercayaan orang lain", "Kepercayaan meningkat", "Hubungan harmonis", "Pekerjaan cepat"], c: 0 }
     ];
 
-    const quizCharacter = [
+    let quizCharacter = [
         { q: "Aku pinjam 20rb, besok balik 25rb. Sebagai teman yang baik apa yang kamu lakukan?", a: ["Menolak tambahan dan meminjamkan 20rb tanpa kelebihan", "Menerima karena menguntungkan", "Menyarankan pinjam ke orang lain", "Menunda membantu"], c: 0 },
         { q: "Pinjam 10rb sekarang, balik 10rb besok. Ini termasuk transaksi apa?", a: ["Qard, karena pinjam tanpa tambahan", "Riba Nasi’ah", "Riba Fadl", "Jual beli"], c: 0 },
         { q: "Utang belum lunas, diberi waktu 1 minggu tapi jumlah jadi dua kali lipat. Ini termasuk?", a: ["Riba Jahiliyah (Tambahan karena terlambat)", "Riba Fadl", "Riba Nasi’ah", "Bukan riba"], c: 0 }
     ];
-
-    let introStep = 0, moveDir = null, amanah = 100, berkah = 0, itemsFound = 0, streak = 0, isPaused = true;
+    const params = new URLSearchParams(window.location.search);
+    // Ambil nilai dari URL, jika tidak ada (error), default kembali ke 100 (atau nilai amanah terakhir)
+    let amanah = parseInt(params.get('amanah')) || 100;
+    let berkah = parseInt(params.get('berkah')) || 100;
+    
+    let streak = 0; 
+    let isPaused = true; 
+    let stepIdx = 0; // Game tetap terkunci sampai data diterima dari portal
+    let introStep = 0, moveDir = null, itemsFound = 0;
     let powerStopTime = 0, currentInteractingIndex = -1, isInvulnerable = false, invulTimer = 0;
     let floatingTexts = [];
-    const player = { x: 175, y: 560, size: 14, speed: 2.2 };
+    const player = { x: 175, y: 560, size: 14, speed: 2.2, startX: 175, startY: 560 };
 
+    
     let enemies = [{ x: 40, y: 190, dx: 1.5 }, { x: 290, y: 285, dx: -1.5 }];
-    // Item Paket (7) & Karakter (3)
     let interactables = [
-        {x: 95, y: 295, t:'paket'}, {x: 180, y: 220, t:'crt2'}, {x: 120, y: 240, t:'paket'}, {x: 200, y: 280, t:'crt3'}, {x: 63, y: 340, t:'paket'}, {x: 295, y: 340, t:'paket'}, {x: 160, y: 460, t:'crt2'}, {x: 245, y: 472, t:'paket'}, {x: 90, y: 510, t:'crt3'}, {x: 200, y: 392, t:'paket'}];
+        {x: 95, y: 295, t:'paket'}, {x: 180, y: 220, t:'crt2'}, {x: 120, y: 240, t:'paket'}, {x: 200, y: 280, t:'paket'}, {x: 63, y: 340, t:'paket'}, {x: 295, y: 340, t:'paket'}, {x: 160, y: 460, t:'crt2'}, {x: 245, y: 472, t:'paket'}, {x: 90, y: 510, t:'crt3'}, {x: 200, y: 392, t:'paket'}];
 
     function nextIntro() {
-        introStep++;
-        const text = document.getElementById('intro-text');
-        if(introStep === 1) text.innerHTML = "Waspada! Setan akan mencoba mencuri poinmu. Gunakan tombol panah untuk menghindar.";
-        else if(introStep === 2) { text.innerHTML = "Jawab kuis dengan benar untuk mendapatkan STREAK dan mengisi Menara Amanah!"; document.getElementById('intro-btn').innerText = "MULAI"; }
-        else { document.getElementById('intro-screen').style.display = 'none'; isPaused = false; }
+    	audio.bgm.play().catch(e => console.log("Musik diblokir browser:", e));
+	const text = document.getElementById('intro-text');
+    	const btn = document.getElementById('intro-btn');
+    	const steps = [
+            "Waspada! Setan akan mencoba mencuri poinmu. Gunakan tombol panah untuk menghindar.",
+            "Jawab kuis dengan benar untuk mendapatkan STREAK dan mengisi Menara Amanah!",
+            "MULAI"
+   	];
+
+    	if(stepIdx < 2) {
+            text.innerHTML = steps[stepIdx];
+            if(stepIdx === 1) btn.innerText = "MULAI";
+            stepIdx++;
+    	} else {
+            document.getElementById('intro-screen').style.display = 'none';
+            isPaused = false;
+   	}
     }
 
     function checkWall(x, y) {
@@ -195,9 +204,15 @@
         return (gridMap[gy] && gridMap[gy][gx] === 1);
     }
 
+    // PERBAIKAN: Backtrack aman tanpa terjebak dinding
     function safeBacktrack() {
-        player.y += 40;
-        if (checkWall(player.x, player.y)) { player.y = 560; player.x = 175; }
+    	// Cara paling aman agar tidak terjebak adalah kembali ke titik awal
+    	player.x = player.startX;
+    	player.y = player.startY;
+    	moveDir = null; // Hentikan gerakan otomatis
+    
+    	// Berikan efek visual agar pemain tahu mereka di-reset
+    	spawnFloatingText(player.x, player.y - 20, "RESET!");
     }
 
     function spawnFloatingText(x, y, txt) { floatingTexts.push({ x: x, y: y, txt: txt, life: 60 }); }
@@ -229,8 +244,9 @@
                 else e.x = nx;
             }
             if (!isInvulnerable && Math.hypot(e.x - player.x, e.y - player.y) < 16) {
-                amanah -= 1; streak = 0; isInvulnerable = true; invulTimer = Date.now() + 1500;
-                spawnFloatingText(player.x, player.y, "-1"); updateUI();
+                amanah = Math.max(0, amanah - 2); 
+                streak = 0; isInvulnerable = true; invulTimer = Date.now() + 1500;
+                spawnFloatingText(player.x, player.y, "-2"); updateUI();
             }
         });
 
@@ -246,9 +262,16 @@
 
     function showQuiz(type) {
         isPaused = true; moveDir = null;
-        // Pilih pool soal berdasarkan tipe item
         const pool = (type === 'paket') ? quizPaket : quizCharacter;
-        const qData = pool[Math.floor(Math.random() * pool.length)];
+        
+        // Cek jika soal habis
+        if (pool.length === 0) {
+            closeQuiz();
+            return;
+        }
+
+        const qIdx = Math.floor(Math.random() * pool.length);
+        const qData = pool[qIdx];
         const correctText = qData.a[qData.c];
         let options = [...qData.a].sort(() => Math.random() - 0.5);
         
@@ -263,18 +286,26 @@
             btn.innerText = opt;
             btn.onclick = () => {
                 if (opt === correctText) {
-                    btn.classList.add('blink-correct');
+                    audio.benar.currentTime = 0; 
+            	    audio.benar.play();
+		    btn.classList.add('blink-correct');
                     setTimeout(() => {
                         amanah += 10; berkah += 10; itemsFound++; streak++;
+                        pool.splice(qIdx, 1); // HAPUS SOAL AGAR TIDAK BERULANG
                         interactables.splice(currentInteractingIndex, 1);
                         document.getElementById('tower-fill').style.height = (itemsFound * 10) + "%";
                         handleStreak();
                         closeQuiz();
                     }, 800);
                 } else {
-                    amanah -= 5; streak = 0;
-                    safeBacktrack(); addNewEnemy();
-                    showMsg("SALAH! AMANAH -5 & SETAN BERTAMBAH");
+                    audio.salah.currentTime = 0; 
+            	    audio.salah.play();
+		    amanah = Math.max(0, amanah - 5); streak = 0;
+                    safeBacktrack(); 
+                    addNewEnemy();
+                    audio.setan.currentTime = 0; 
+            	    audio.setan.play();
+		    showMsg("SALAH! AMANAH -5 & SETAN +1");
                     closeQuiz();
                 }
             };
@@ -292,20 +323,20 @@
 
     function closeQuiz() { document.getElementById('quiz-overlay').style.display = 'none'; updateUI(); isPaused = false; }
     function showMsg(t) { const m = document.getElementById('streak-msg'); m.innerText = t; m.style.opacity = 1; setTimeout(() => m.style.opacity = 0, 2000); }
-    function updateUI() { document.getElementById('val-amanah').innerText = amanah; document.getElementById('val-berkah').innerText = berkah; document.getElementById('val-streak').innerText = streak; }
+    function updateUI() { 
+        document.getElementById('val-amanah').innerText = amanah || 0; 
+    	document.getElementById('val-berkah').innerText = berkah || 0; 
+    	document.getElementById('val-streak').innerText = streak;
+    }
 
     function showOutro() {
         isPaused = true;
         const screen = document.getElementById('outro-screen');
-        document.getElementById('outro-text').innerHTML = `Misi Selesai!<br>Poin Amanah: ${amanah}<br>Poin Berkah: ${berkah}<br>Gelar: Pejuang Amanah`;
+        document.getElementById('outro-text').innerHTML = `Misi Selesai!<br>Amanah: ${amanah}<br>Berkah: ${berkah}<br>Gelar: Pejuang Amanah`;
         screen.style.display = 'flex';
         setTimeout(() => screen.style.opacity = "1", 100);
 
-        // --- TAMBAHAN: UBAH TOMBOL AGAR MENGAKHIRI GAME KE INDEX2 ---
-        // Cari tombol di dalam outro-screen dan ubah onclick-nya secara dinamis atau edit HTML-nya
-        const btn = screen.querySelector('button');
-        btn.innerText = "LIHAT HASIL AKHIR";
-        btn.onclick = function() {
+        document.getElementById('outro-finish-btn').onclick = function() {
             window.parent.postMessage({
                 type: 'FINISH_BALAI',
                 amanah: amanah,
@@ -332,6 +363,9 @@
         update();
         requestAnimationFrame(draw);
     }
+    
+    // Inisialisasi awal
+    updateUI();
     draw();
 </script>
 </body>
