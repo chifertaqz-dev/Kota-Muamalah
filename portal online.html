@@ -14,8 +14,9 @@
         #game-container {
             width: 100vw; height: 177.78vw; max-height: 100vh; max-width: 56.25vh;
             position: relative; overflow: hidden; background-color: #f0f0f0;
-            box-shadow: 0 0 30px rgba(0,0,0,0.7);ouch-action: none;-webkit-user-select: none; user-select: none;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);touch-action: none;-webkit-user-select: none; user-select: none;
         }
+
 
         .layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background-size: cover; background-position: center; }
         .active { display: flex; }
@@ -383,18 +384,25 @@
         else requestAnimationFrame(update);
     }
 
-    /* --- INPUT LOGIC --- */
+
+    /* --- INPUT LOGIC (MOUSE & TOUCH) --- */
     const getPos = (e) => {
         const rect = canvas.getBoundingClientRect();
+        // Cek apakah input berasal dari sentuhan (touches) atau mouse
         const cx = e.touches ? e.touches[0].clientX : e.clientX;
         const cy = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: (cx - rect.left) * (450 / rect.width), y: (cy - rect.top) * (800 / rect.height) };
+        return { 
+            x: (cx - rect.left) * (450 / rect.width), 
+            y: (cy - rect.top) * (800 / rect.height) 
+        };
     };
 
-    canvas.addEventListener('mousedown', (e) => {
+    function startAction(e) {
         const pos = getPos(e);
         orders.forEach(o => {
-            if (o.status === 'pending' && pos.x > o.x && pos.x < o.x + PROD_W && pos.y > o.y && pos.y < o.y + PROD_H) draggedOrder = o;
+            if (o.status === 'pending' && pos.x > o.x && pos.x < o.x + PROD_W && pos.y > o.y && pos.y < o.y + PROD_H) {
+                draggedOrder = o;
+            }
             if (o.status === 'deciding') {
                 if (pos.y > o.y + 105 && pos.y < o.y + 150) {
                     if (pos.x > o.x - 35 && pos.x < o.x + 40) handleDecision(o, 'kirim');
@@ -402,19 +410,43 @@
                 }
             }
         });
-    });
+    }
 
-    window.addEventListener('mousemove', (e) => { if (draggedOrder) { const pos = getPos(e); draggedOrder.x = pos.x - 25; draggedOrder.y = pos.y - 35; } });
-    window.addEventListener('mouseup', () => {
+    function moveAction(e) {
+        if (draggedOrder) {
+            e.preventDefault(); // Mencegah layar HP scroll saat nge-drag barang
+            const pos = getPos(e);
+            draggedOrder.x = pos.x - 25;
+            draggedOrder.y = pos.y - 35;
+        }
+    }
+
+    function endAction() {
         if (!draggedOrder) return;
         const inBaju = (draggedOrder.x+25 > stores.baju.x && draggedOrder.x+25 < stores.baju.x + stores.baju.w && draggedOrder.y+35 > stores.baju.y && draggedOrder.y+35 < stores.baju.y + stores.baju.h);
         const inElektro = (draggedOrder.x+25 > stores.elektro.x && draggedOrder.x+25 < stores.elektro.x + stores.elektro.w && draggedOrder.y+35 > stores.elektro.y && draggedOrder.y+35 < stores.elektro.y + stores.elektro.h);
+        
         if ((inBaju && draggedOrder.cat === 'baju') || (inElektro && draggedOrder.cat === 'elektro')) {
-            draggedOrder.status = 'processing'; draggedOrder.timer = 60;
-            draggedOrder.x = (inBaju ? stores.baju.x : stores.elektro.x) + 40; draggedOrder.y -= 100;
-        } else { draggedOrder.x = draggedOrder.homeX; draggedOrder.y = draggedOrder.homeY; }
+            draggedOrder.status = 'processing'; 
+            draggedOrder.timer = 60;
+            draggedOrder.x = (inBaju ? stores.baju.x : stores.elektro.x) + 40; 
+            draggedOrder.y -= 100;
+        } else { 
+            draggedOrder.x = draggedOrder.homeX; 
+            draggedOrder.y = draggedOrder.homeY; 
+        }
         draggedOrder = null;
-    });
+    }
+
+    // Listener untuk Mouse
+    canvas.addEventListener('mousedown', startAction);
+    window.addEventListener('mousemove', moveAction);
+    window.addEventListener('mouseup', endAction);
+
+    // Listener untuk Touch (Layar Sentuh HP)
+    canvas.addEventListener('touchstart', (e) => { startAction(e); e.preventDefault(); }, {passive: false});
+    window.addEventListener('touchmove', (e) => { moveAction(e); e.preventDefault(); }, {passive: false});
+    window.addEventListener('touchend', endAction);
 
     function endGame() {
         gameActive = false; document.getElementById('overlay').style.display = 'flex';
@@ -429,6 +461,7 @@
             document.getElementById('over-btn').onclick = () => location.reload();
         }
     }
+
 
     // --- UPDATE FUNGSI finishGame ---
     function finishGame() { 
