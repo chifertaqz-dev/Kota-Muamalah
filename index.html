@@ -29,7 +29,7 @@
         .btn-start {
             padding: 15px 40px; font-size: 20px; font-weight: bold; color: white;
             background: var(--primary); border: none; border-radius: 50px; cursor: pointer;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3); text-transform: uppercase; z-index: 10; margin-top: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3); text-transform: uppercase; z-index: 10; margin-top: 450px;
         }
         .pulse-glow { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); } 70% { box-shadow: 0 0 0 20px rgba(0,0,0,0); } }
@@ -37,7 +37,7 @@
         /* NARASI LAYER */
         #narasi-layer { background-image: url('bg_narasi.png'); align-items: center; padding: 20px; box-sizing: border-box; }
         .narrator-box { margin-top: 50px; width: 90%; background: white; padding: 20px; border-radius: 20px; border: 4px solid var(--primary); font-weight: bold; color: #333; z-index: 20; min-height: 100px; }
-        .crt-narrator { position: absolute; bottom: 0; width: 90%; opacity: 0; transition: 1s; pointer-events: none; }
+        .crt-narrator { position: absolute; bottom: 0; width: 80%; opacity: 0; transition: 1s; pointer-events: none; }
         .crt-narrator.fade-in { opacity: 1; transform: translateY(0); }
 
         /* REGISTRASI LAYER */
@@ -126,7 +126,7 @@
 <script>
     // --- KONFIGURASI DATABASE ---
     // GANTI URL INI DENGAN URL DARI GOOGLE APPS SCRIPT ANDA
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzJgCgCexxKxd33Xw3PZDuswvBzKJnGDqN045a6oGSTuOlHqar-fVJEgwInElDYpJKBag/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzzOkh8mLltcA11KZ-5FQ41txzYuTqS7i8b1KI1eBX4KhL7TLyJd1j60zQiPCHKIC7ZkQ/exec";
 
     let gameState = {
         rowId: null, // ID baris di Google Sheet
@@ -259,6 +259,7 @@
         
         document.getElementById('game-iframe').src = url;
         document.getElementById('game-frame-container').style.display = 'block';
+    	bgmMenu.pause();
     }
 
     function checkPin(gameId) {
@@ -317,7 +318,8 @@
     function closeGame() {
         document.getElementById('game-frame-container').style.display = 'none';
         document.getElementById('game-iframe').src = "";
-        goToMap();
+        bgmMenu.play().catch(e => console.log("Musik menu lanjut"));
+	goToMap();
     }
 
     function showFinal(predikat) {
@@ -330,6 +332,19 @@
         // Panggil Leaderboard
         loadLeaderboard();
     }
+
+    // --- TAMBAHAN AUDIO ---
+    const bgmMenu = new Audio('bgm_menu.mp3');
+    bgmMenu.loop = true;
+    bgmMenu.volume = 0.5; // Volume 50%
+
+    // Agar browser mengizinkan audio, kita pancing dengan interaksi pertama
+    document.body.addEventListener('click', function() {
+        if (bgmMenu.paused) {
+            bgmMenu.play().catch(e => console.log("Audio play failed", e));
+        }
+    }, { once: true });
+
 </script>
 </body>
 </html>
