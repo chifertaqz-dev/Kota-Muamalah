@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kota Muamalah - Petualangan Amanah</title>
+    <style>
+        :root { --primary: #2ecc71; --danger: #e74c3c; --dark: #2c3e50; --gold: #f1c40f; }
+        body, html { margin: 0; padding: 0; height: 100%; display: flex; justify-content: center; align-items: center; background-color: #333; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        
+        #game-container {
+            width: 100vw; height: 177.78vw; max-height: 100vh; max-width: 56.25vh;
+            position: relative; overflow: hidden; background: #000;
+        }
+
+        .layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background-size: cover; background-position: center; flex-direction: column; }
+        .active { display: flex; }
+
+        /* LOADING SPINNER */
+        #loading-overlay { 
+            position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); 
+            z-index: 999; display: none; justify-content: center; align-items: center; color: white; flex-direction: column;
+        }
+        .spinner { border: 5px solid #f3f3f3; border-top: 5px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* COVER LAYER */
+        #cover-layer { background-image: url('bg_cover.jpg'); justify-content: center; align-items: center; }
+        .btn-start {
+            padding: 15px 40px; font-size: 20px; font-weight: bold; color: white;
+            background: var(--primary); border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3); text-transform: uppercase; z-index: 10; margin-top: 20px;
+        }
+        .pulse-glow { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); } 70% { box-shadow: 0 0 0 20px rgba(0,0,0,0); } }
+
+        /* NARASI LAYER */
+        #narasi-layer { background-image: url('bg_narasi.png'); align-items: center; padding: 20px; box-sizing: border-box; }
+        .narrator-box { margin-top: 50px; width: 90%; background: white; padding: 20px; border-radius: 20px; border: 4px solid var(--primary); font-weight: bold; color: #333; z-index: 20; min-height: 100px; }
+        .crt-narrator { position: absolute; bottom: 0; width: 90%; opacity: 0; transition: 1s; pointer-events: none; }
+        .crt-narrator.fade-in { opacity: 1; transform: translateY(0); }
+
+        /* REGISTRASI LAYER */
+        #reg-layer { background-color: var(--dark); justify-content: center; align-items: center; color: white; }
+        .form-box { background: white; color: #333; padding: 30px; border-radius: 15px; width: 80%; text-align: center; }
+        .form-box input { width: 90%; padding: 10px; margin: 10px 0; border: 2px solid #ddd; border-radius: 5px; font-size: 16px; }
+
+        /* MAP LAYER */
+        #map-layer { background-image: url('bg_map.png'); }
+        .map-point { position: absolute; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; cursor: pointer; transform: translateX(-50%); z-index: 10; }
+        .lock-img { width: 100%; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
+        #pos-pasar { bottom: 15%; left: 50%; }
+        #pos-ecommerce { top: 45%; left: 50%; }
+        #pos-balai { top: 15%; left: 50%; }
+
+        /* GAME FRAME */
+        #game-frame-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 100; background: #000; }
+        iframe { width: 100%; height: 100%; border: none; }
+
+        /* FINAL LAYER & LEADERBOARD */
+        #final-layer { background-image: url('balai.png'); justify-content: center; align-items: center; text-align: center; color: white; background-size: cover; overflow-y: auto; }
+        .score-card { background: rgba(0,0,0,0.9); padding: 20px; border-radius: 20px; border: 3px solid var(--gold); width: 85%; margin-top: 20px; max-height: 90%; overflow-y: auto; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        th, td { padding: 5px; border-bottom: 1px solid #555; text-align: left; }
+        th { color: var(--gold); }
+        .rank-1 { color: #FFD700; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text">Menyimpan Data...</div>
+    </div>
+
+    <div id="cover-layer" class="layer active">
+        <button class="btn-start pulse-glow" onclick="startToNarasi()">MULAI GAME</button>
+    </div>
+    
+    <div id="narasi-layer" class="layer">
+        <div class="narrator-box" id="typing-text"></div>
+        <img src="crt_narator.png" id="narrator-img" class="crt-narrator">
+        <button id="btn-narasi-next" class="btn-start" style="display:none; bottom:8%; position:absolute;" onclick="showRegister()">DAFTAR PEDAGANG</button>
+    </div>
+
+    <div id="reg-layer" class="layer">
+        <div class="form-box">
+            <h2 style="color:var(--primary)">DATA PEDAGANG</h2>
+            <p>Isi data diri sebelum masuk kota.</p>
+            <input type="text" id="reg-nama" placeholder="Nama Lengkap">
+            <input type="text" id="reg-kelas" placeholder="Kelas">
+            <input type="number" id="reg-absen" placeholder="No Absen">
+            <button class="btn-start" style="position:relative; width:100%; margin-top:15px;" onclick="submitRegistration()">MASUK KOTA</button>
+        </div>
+    </div>
+
+    <div id="map-layer" class="layer">
+        <div id="pos-pasar" class="map-point" onclick="enterGame('pasar')"><img src="gembok_buka.png" class="lock-img pulse-glow" id="icon-pasar"></div>
+        <div id="pos-ecommerce" class="map-point" onclick="checkPin('ecommerce')"><img src="gembok_tutup.png" class="lock-img" id="icon-ecommerce"></div>
+        <div id="pos-balai" class="map-point" onclick="checkPin('balai')"><img src="gembok_tutup.png" class="lock-img" id="icon-balai"></div>
+    </div>
+
+    <div id="game-frame-container"><iframe id="game-iframe" src=""></iframe></div>
+
+    <div id="final-layer" class="layer">
+        <div class="score-card">
+            <h2 style="color:var(--gold); margin:0;">HASIL AKHIR</h2>
+            <div style="font-size: 18px; margin: 10px 0;">
+                Amanah: <b style="color:#A7C7E7" id="final-amanah">0</b> | 
+                Berkah: <b style="color:#FDFD96" id="final-berkah">0</b>
+            </div>
+            <p id="final-predikat" style="font-style:italic; font-size:14px; margin-bottom:15px;"></p>
+            
+            <hr style="border:1px solid #555;">
+            <h3 style="color:white; margin:10px 0;">PAPAN PERINGKAT KELAS</h3>
+            <div id="leaderboard-container">Loading Rank...</div>
+            
+            <button class="btn-start" style="position:relative; transform:none; font-size:14px; padding:10px 20px; margin-top:20px;" onclick="location.reload()">MAIN ULANG</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- KONFIGURASI DATABASE ---
+    // GANTI URL INI DENGAN URL DARI GOOGLE APPS SCRIPT ANDA
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzJgCgCexxKxd33Xw3PZDuswvBzKJnGDqN045a6oGSTuOlHqar-fVJEgwInElDYpJKBag/exec";
+
+    let gameState = {
+        rowId: null, // ID baris di Google Sheet
+        amanah: 100, 
+        berkah: 100,
+        pins: { ecommerce: null, balai: null },
+        unlocked: { pasar: true, ecommerce: false, balai: false }
+    };
+
+    /* --- FUNGSI API --- */
+    function showLoading(show, text="Memuat...") {
+        const el = document.getElementById('loading-overlay');
+        document.getElementById('loading-text').innerText = text;
+        el.style.display = show ? 'flex' : 'none';
+    }
+
+    function submitRegistration() {
+        const nama = document.getElementById('reg-nama').value;
+        const kelas = document.getElementById('reg-kelas').value;
+        const absen = document.getElementById('reg-absen').value;
+
+        if(!nama || !kelas || !absen) { alert("Mohon isi semua data!"); return; }
+
+        showLoading(true, "Mendaftarkan Pedagang...");
+
+        // Kirim data ke Google Sheet
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: new URLSearchParams({
+                action: 'register',
+                nama: nama,
+                kelas: kelas,
+                absen: absen
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showLoading(false);
+            if(data.result === 'success') {
+                gameState.rowId = data.row; // Simpan ID baris
+                goToMap();
+            } else {
+                alert("Gagal koneksi database. Coba lagi.");
+            }
+        })
+        .catch(err => {
+            showLoading(false);
+            alert("Error: " + err);
+        });
+    }
+
+    function saveScoreToSheet(stage, amanah, berkah, predikat="") {
+        showLoading(true, "Menyimpan Skor...");
+        
+        const params = new URLSearchParams({
+            action: 'update_score',
+            row: gameState.rowId,
+            stage: stage,
+            amanah: amanah,
+            berkah: berkah,
+            predikat: predikat
+        });
+
+        fetch(SCRIPT_URL, { method: 'POST', body: params })
+        .then(res => res.json())
+        .then(data => {
+            showLoading(false);
+            console.log("Score Saved");
+        })
+        .catch(err => {
+            showLoading(false);
+            console.error("Save Failed", err); // Lanjut saja agar game tidak macet
+        });
+    }
+
+    function loadLeaderboard() {
+        const container = document.getElementById('leaderboard-container');
+        container.innerHTML = "Mengambil data...";
+        
+        fetch(SCRIPT_URL + "?action=get_leaderboard")
+        .then(res => res.json())
+        .then(data => {
+            let html = `<table><tr><th>Rk</th><th>Nama</th><th>Total</th><th>Gelar</th></tr>`;
+            data.forEach((p, index) => {
+                let rankClass = index === 0 ? 'rank-1' : '';
+                html += `<tr class="${rankClass}">
+                    <td>${index+1}</td>
+                    <td>${p.nama}</td>
+                    <td>${p.total}</td>
+                    <td>${p.predikat}</td>
+                </tr>`;
+            });
+            html += `</table>`;
+            container.innerHTML = html;
+        });
+    }
+
+    /* --- NAVIGASI --- */
+    function switchLayer(id) {
+        document.querySelectorAll('.layer').forEach(l => l.style.display = 'none');
+        document.getElementById('game-frame-container').style.display = 'none';
+        document.getElementById(id).style.display = 'flex';
+    }
+
+    function startToNarasi() {
+        switchLayer('narasi-layer');
+        const text = "Assalamu'alaikum! Selamat datang di Kota Muamalah. Kamu akan memulai dengan Modal Amanah 100 dan Berkah 100. Nama dan skormu akan dicatat di Balai Kota.";
+        setTimeout(() => document.getElementById('narrator-img').classList.add('fade-in'), 300);
+        let i = 0;
+        const type = () => {
+            if(i < text.length) { document.getElementById('typing-text').innerHTML += text.charAt(i); i++; setTimeout(type, 30); }
+            else document.getElementById('btn-narasi-next').style.display = "block";
+        };
+        type();
+    }
+
+    function showRegister() { switchLayer('reg-layer'); }
+    function goToMap() { switchLayer('map-layer'); updateMapIcons(); }
+
+    function updateMapIcons() {
+        if(gameState.unlocked.ecommerce) document.getElementById('icon-ecommerce').src = 'gembok_buka.png';
+        if(gameState.unlocked.balai) document.getElementById('icon-balai').src = 'gembok_buka.png';
+    }
+
+    function enterGame(gameId) {
+        let url = "";
+        if(gameId === 'pasar') url = "pasar kejujuran.html"; 
+        else if(gameId === 'ecommerce') url = `portal online.html?amanah=${gameState.amanah}&berkah=${gameState.berkah}`;
+        else if(gameId === 'balai') url = `balai amanah.html?amanah=${gameState.amanah}&berkah=${gameState.berkah}`;
+        
+        document.getElementById('game-iframe').src = url;
+        document.getElementById('game-frame-container').style.display = 'block';
+    }
+
+    function checkPin(gameId) {
+        if (!gameState.unlocked[gameId]) { alert("Selesaikan level sebelumnya dulu!"); return; }
+        let pin = prompt(`Masukkan PIN ${gameId.toUpperCase()}:`);
+        if(pin === gameState.pins[gameId]) enterGame(gameId);
+        else alert("PIN Salah!");
+    }
+
+    /* --- KOMUNIKASI ANTAR GAME --- */
+    window.addEventListener('message', (e) => {
+        const data = e.data;
+        
+        if(data.type === 'FINISH_PASAR') {
+            gameState.amanah = data.amanah;
+            gameState.berkah = data.berkah;
+            gameState.pins.ecommerce = data.pin;
+            gameState.unlocked.ecommerce = true;
+            
+            // Simpan Data Pasar ke Database
+            saveScoreToSheet('pasar', data.amanah, data.berkah);
+            
+            closeGame();
+            alert(`Pasar Selesai! Data disimpan. PIN Portal: ${data.pin}`);
+        
+        } else if(data.type === 'FINISH_ECOMMERCE') {
+            gameState.amanah = data.amanah;
+            gameState.berkah = data.berkah;
+            gameState.pins.balai = data.pin;
+            gameState.unlocked.balai = true;
+
+            // Simpan Data Portal ke Database
+            saveScoreToSheet('portal', data.amanah, data.berkah);
+
+            closeGame();
+            alert(`Portal Selesai! Data disimpan. PIN Balai: ${data.pin}`);
+
+        } else if(data.type === 'FINISH_BALAI') {
+            gameState.amanah = data.amanah;
+            gameState.berkah = data.berkah;
+            
+            // Tentukan Predikat
+            let predikat = "Pedagang Pemula";
+            if (gameState.amanah > 350) predikat = "Saudagar Mulia";
+            else if (gameState.amanah > 200) predikat = "Pedagang Jujur";
+
+            // Simpan Final & Predikat ke Database
+            saveScoreToSheet('balai', data.amanah, data.berkah, predikat);
+
+            showFinal(predikat);
+        } else if(data.type === 'BACK_TO_MAP') {
+            closeGame();
+        }
+    });
+
+    function closeGame() {
+        document.getElementById('game-frame-container').style.display = 'none';
+        document.getElementById('game-iframe').src = "";
+        goToMap();
+    }
+
+    function showFinal(predikat) {
+        document.getElementById('game-frame-container').style.display = 'none';
+        switchLayer('final-layer');
+        document.getElementById('final-amanah').innerText = gameState.amanah;
+        document.getElementById('final-berkah').innerText = gameState.berkah;
+        document.getElementById('final-predikat').innerText = `Gelar Anda: "${predikat}"`;
+        
+        // Panggil Leaderboard
+        loadLeaderboard();
+    }
+</script>
+</body>
+</html>

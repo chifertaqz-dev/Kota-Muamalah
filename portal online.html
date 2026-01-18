@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ecommerce - Portal Toko Online</title>
+    <style>
+        :root { 
+            --primary: #A7C7E7; --success: #77DD77; --danger: #FF6961; --dark: #2c3e50; 
+            --secondary: #FDFD96; --accent: #FAC898;
+        }
+        body, html { margin: 0; padding: 0; height: 100%; display: flex; justify-content: center; align-items: center; background-color: #333; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
+        
+        #game-container {
+            width: 100vw; height: 177.78vw; max-height: 100vh; max-width: 56.25vh;
+            position: relative; overflow: hidden; background-color: #f0f0f0;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+        }
+
+        .layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background-size: cover; background-position: center; }
+        .active { display: flex; }
+
+        /* --- Animasi Pulse Glow --- */
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(119, 221, 119, 0.7); transform: translateX(-50%) scale(1); }
+            70% { box-shadow: 0 0 0 15px rgba(119, 221, 119, 0); transform: translateX(-50%) scale(1.05); }
+            100% { box-shadow: 0 0 0 0 rgba(119, 221, 119, 0); transform: translateX(-50%) scale(1); }
+        }
+        .pulse-btn { animation: pulse-glow 2s infinite; }
+
+        /* --- Narasi & Quiz Style --- */
+        #quiz-layer { background-image: url('bg_online.png'); }
+        
+        /* Overlay Hitam untuk Kuis */
+        #quiz-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); display: none; z-index: 15;
+        }
+
+        .speech-bubble { 
+            position: absolute; top: 25%; left: 50%; transform: translateX(-50%); 
+            background: white; padding: 20px; border-radius: 15px; width: 80%; 
+            border: 3px solid var(--primary); font-weight: bold; text-align: center; 
+            z-index: 10; font-size: 16px; min-height: 60px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .speech-bubble::after {
+            content: ''; position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%);
+            border-width: 15px 15px 0; border-style: solid; border-color: white transparent;
+        }
+        
+        .quiz-container { 
+            background: rgba(255,255,255,0.98); 
+            margin: auto; width: 85%; padding: 20px; 
+            border-radius: 15px; z-index: 20; 
+            box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .timer-bar { width: 100%; height: 10px; background: #ddd; border-radius: 5px; margin-bottom: 10px; overflow: hidden; }
+        #timer-fill { width: 100%; height: 100%; background: var(--danger); transition: width 0.1s linear; }
+        
+        .opt-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+        .opt-card { background: #f8f9fa; border: 2px solid #ddd; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; transition: 0.2s; }
+        .opt-card.selected { border-color: var(--primary); background: #eef6ff; }
+        .opt-card input { margin-right: 10px; }
+
+        .btn { padding: 12px 25px; background: var(--success); color: white; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; align-self: center; margin-top: 15px; font-size: 14px; }
+
+        /* --- Canvas Game Style --- */
+        canvas { width: 100%; height: 100%; display: block; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; z-index: 500; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="quiz-layer" class="layer active">
+        <div id="quiz-overlay"></div>
+
+        <div class="speech-bubble" id="msg-bubble"></div>
+        
+        <div id="quiz-box" class="quiz-container" style="display:none;">
+            <div class="timer-bar"><div id="timer-fill"></div></div>
+            <div id="q-count" style="font-weight:bold; color:var(--dark); font-size: 12px;">Soal 1/5</div>
+            <p id="q-text" style="font-size:14px; margin: 10px 0; font-weight: bold;"></p>
+            <div class="opt-grid" id="opt-grid"></div>
+            <button class="btn" onclick="checkQuizAnswer()" style="width: 100%;">KONFIRMASI JAWABAN</button>
+        </div>
+
+        <button class="btn pulse-btn" id="start-quiz-btn" style="position:absolute; bottom:20%; left:50%; z-index:30;" onclick="initQuiz()">MULAI KUIS</button>
+    </div>
+
+    <div id="game-layer" class="layer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <h1 id="over-title">HASIL</h1>
+        <p id="over-msg"></p>
+        <div id="pin-box" style="background:white; color:black; padding:15px; border-radius:10px; margin:10px; display:none;">
+            <small>PIN MENUJU BALAI KOTA:</small><br>
+            <b id="pin-code" style="font-size:24px; letter-spacing:5px;">----</b>
+        </div>
+        <button class="btn" id="over-btn" onclick="finishGame()">KEMBALI KE PETA</button>
+    </div>
+</div>
+
+<script>
+    /* --- ANIMASI TYPEWRITER --- */
+    function typeWriter(text, elementId, callback) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = "";
+        let i = 0;
+        function type() {
+            if (i < text.length) {
+                element.innerHTML += text.charAt(i);
+                i++;
+                setTimeout(type, 30);
+            } else if (callback) {
+                callback();
+            }
+        }
+        type();
+    }
+
+    // Jalankan narasi awal saat load
+    window.onload = () => {
+        typeWriter("Assalamu'alaikum! Selamat datang di Portal Toko Online. Jawab 5 soal (pilih 3 benar) dalam 1 menit!", "msg-bubble");
+    };
+
+    /* --- STATE & QUIZ DATA --- */
+    const params = new URLSearchParams(window.location.search);
+    let amanah = parseInt(params.get('amanah')) || 100;
+    let berkah = parseInt(params.get('berkah')) || 100;
+    
+    let currentQ = 0;
+    let quizTimer = 60;
+    let timerInterval;
+
+    const rawQuiz = [
+        { q: "Apa saja rukun jual beli yang harus terpenuhi dalam transaksi online?", 
+          o: ["Penjual & Pembeli", "Barang (Objek)", "Ijab Kabul (Akad)", "Adanya Diskon Besar", "Ongkos Kirim Gratis"], 
+          c: ["Penjual & Pembeli", "Barang (Objek)", "Ijab Kabul (Akad)"] },
+        { q: "Manakah tindakan yang termasuk menjaga amanah sebagai penjual online?", 
+          o: ["Mengirim barang sesuai foto", "Menjelaskan cacat produk jika ada", "Mengemas barang dengan aman", "Menggunakan foto produk milik orang lain", "Mengulur waktu pengiriman tanpa kabar"], 
+          c: ["Mengirim barang sesuai foto", "Menjelaskan cacat produk jika ada", "Mengemas barang dengan aman"] },
+        { q: "Unsur apa yang dilarang dalam perdagangan syariah?", 
+          o: ["Gharar (Ketidakpastian)", "Riba (Bunga/Tambahan)", "Tadlis (Penipuan)", "Khiyar (Hak Pilih)", "Tabarru (Sedekah)"], 
+          c: ["Gharar (Ketidakpastian)", "Riba (Bunga/Tambahan)", "Tadlis (Penipuan)"] },
+        { q: "Apa saja syarat barang yang boleh diperjualbelikan?", 
+          o: ["Barang milik sendiri", "Barang suci/halal", "Kualitas diketahui jelas", "Barang yang belum dimiliki", "Barang hasil curian"], 
+          c: ["Barang milik sendiri", "Barang suci/halal", "Kualitas diketahui jelas"] },
+        { q: "Etika berkomunikasi dengan pembeli yang sesuai adab adalah...", 
+          o: ["Ramah dan sopan", "Jujur dalam menjawab chat", "Sabar menghadapi komplain", "Memaksa pembeli memberi bintang 5", "Mengabaikan pertanyaan pembeli"], 
+          c: ["Ramah dan sopan", "Jujur dalam menjawab chat", "Sabar menghadapi komplain"] }
+    ];
+
+    function initQuiz() {
+        document.getElementById('start-quiz-btn').style.display = 'none';
+        document.getElementById('msg-bubble').style.display = 'none'; // Sembunyikan bubble saat kuis
+        document.getElementById('quiz-overlay').style.display = 'block';
+        document.getElementById('quiz-box').style.display = 'block';
+        renderQuestion();
+        timerInterval = setInterval(() => {
+            quizTimer -= 0.1;
+            document.getElementById('timer-fill').style.width = (quizTimer/60)*100 + "%";
+            if(quizTimer <= 0) { clearInterval(timerInterval); location.reload(); }
+        }, 100);
+    }
+
+    function renderQuestion() {
+        const q = rawQuiz[currentQ];
+        document.getElementById('q-count').innerText = `Soal ${currentQ + 1}/5`;
+        document.getElementById('q-text').innerText = q.q;
+        const grid = document.getElementById('opt-grid');
+        grid.innerHTML = '';
+        q.o.forEach(opt => {
+            const div = document.createElement('div');
+            div.className = 'opt-card';
+            div.innerHTML = `<input type="checkbox" value="${opt}"> ${opt}`;
+            div.onclick = (e) => {
+                const cb = div.querySelector('input');
+                if(e.target !== cb) cb.checked = !cb.checked;
+                div.classList.toggle('selected', cb.checked);
+            };
+            grid.appendChild(div);
+        });
+    }
+
+    function checkQuizAnswer() {
+        const selected = Array.from(document.querySelectorAll('#opt-grid input:checked')).map(i => i.value);
+        const correct = rawQuiz[currentQ].c;
+        const isCorrect = selected.length === 3 && selected.every(val => correct.includes(val));
+        if(isCorrect) {
+            currentQ++;
+            if(currentQ < 5) renderQuestion();
+            else finishQuiz();
+        } else {
+            alert("Jawaban salah! Kuis diulang dari awal.");
+            currentQ = 0; renderQuestion();
+        }
+    }
+
+    function finishQuiz() {
+        clearInterval(timerInterval);
+        document.getElementById('quiz-box').style.display = 'none';
+        document.getElementById('quiz-overlay').style.display = 'none';
+        
+        const bubble = document.getElementById('msg-bubble');
+        bubble.style.display = 'block';
+        bubble.style.top = '40%'; // Posisi sedikit disesuaikan
+
+        typeWriter("Selamat! Kamu memahami rukun jual beli. Mari mulai bekerja di gudang Paket Berkah. Tarik barang ke toko yang sesuai!", "msg-bubble", () => {
+            document.getElementById('start-quiz-btn').innerText = "LANJUTKAN PERMAINAN";
+            document.getElementById('start-quiz-btn').style.display = 'block';
+            document.getElementById('start-quiz-btn').onclick = startMiniGame;
+        });
+    }
+
+    /* --- MINI GAME LOGIC --- */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 450; canvas.height = 800;
+
+    let gameActive = false, orders = [], timeLeft = 60, draggedOrder = null;
+    let images = {}, feedback = { text: "", color: "", opacity: 0 };
+    const PROD_W = 55, PROD_H = 75;
+
+    const spawnPoints = [{x: 150, y: 150}, {x: 300, y: 150}, {x: 250, y: 400}, {x: 90, y: 600}, {x: 300, y: 600}];
+    const stores = {
+        baju: { x: 230, y: 230, w: 140, h: 120, cat: 'baju' },
+        elektro: { x: 80, y: 330, w: 140, h: 120, cat: 'elektro' }
+    };
+
+    const assets = {
+        bg: 'e_map.png', tokoBaju: 'c_store.png', tokoElektro: 'e_store.png',
+        kaos: 'kaos.png', smartphone: 'smartphone.png',
+        kaos_bgs: 'kaos_bgs.png', kaos_rjk: 'kaos_rjk.png',
+        smartphone_bgs: 'smartphone_bgs.png', smartphone_rjk: 'smartphone_rjk.png',
+        p1: 'crt_perempuancut.png', p2: 'crt_lakicut.png'
+    };
+
+    function startMiniGame() {
+        document.getElementById('quiz-layer').classList.remove('active');
+        document.getElementById('game-layer').classList.add('active');
+        let loaded = 0;
+        for(let key in assets) {
+            images[key] = new Image(); images[key].src = assets[key];
+            images[key].onload = () => { if(++loaded === Object.keys(assets).length) { gameActive = true; spawnOrder(); update(); } };
+        }
+    }
+
+    function drawStyledText(text, x, y, font, color, align = "center") {
+        ctx.save(); ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align;
+        ctx.shadowColor = "rgba(0,0,0,0.7)"; ctx.shadowBlur = 4;
+        ctx.lineWidth = 3; ctx.strokeStyle = "black"; ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y); ctx.restore();
+    }
+
+    function drawProductCard(imgKey, x, y, w, h) {
+        ctx.save(); ctx.fillStyle = "white"; ctx.beginPath(); ctx.roundRect(x, y, w, h, 8); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = "#A7C7E7"; ctx.stroke();
+        if(images[imgKey]) ctx.drawImage(images[imgKey], x+5, y+5, w-10, h-10);
+        ctx.restore();
+    }
+
+    function spawnOrder() {
+        if (!gameActive || orders.length > 0) return;
+        const pool = [{id:'kaos', cat:'baju'}, {id:'smartphone', cat:'elektro'}];
+        const item = pool[Math.floor(Math.random() * pool.length)];
+        const pt = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+        const char = ['p1', 'p2'][Math.floor(Math.random() * 2)];
+        orders.push({ x: pt.x, y: pt.y, homeX: pt.x, homeY: pt.y, item: item.id, cat: item.cat, char: char, status: 'pending', timer: 0, processedImg: null });
+    }
+
+    function handleDecision(o, choice) {
+        const isGood = o.processedImg.includes('_bgs');
+        if (choice === 'kirim') {
+            if (isGood) { amanah += 10; berkah += 10; feedback = {text: "Bagus! +10", color: "#77DD77", opacity: 2.5}; }
+            else { amanah -= 15; berkah -= 5; alert("Amanah turun! Kamu mengirim barang cacat."); }
+            orders = []; setTimeout(spawnOrder, 1000);
+        } else {
+            if (!isGood) { amanah += 5; feedback = {text: "Jujur +5", color: "#A7C7E7", opacity: 2.5}; }
+            o.status = 'processing'; o.timer = 60; 
+        }
+    }
+
+    function update() {
+        if(!gameActive) return;
+        ctx.clearRect(0,0, 450, 800);
+        ctx.drawImage(images.bg, 0, 0, 450, 800);
+        ctx.drawImage(images.tokoBaju, stores.baju.x, stores.baju.y, stores.baju.w, stores.baju.h);
+        ctx.drawImage(images.tokoElektro, stores.elektro.x, stores.elektro.y, stores.elektro.w, stores.elektro.h);
+
+        orders.forEach(o => {
+            if (o.status === 'pending') {
+                drawProductCard(o.item, o.x, o.y, PROD_W, PROD_H);
+                ctx.drawImage(images[o.char], o.x + 35, o.y + 50, 25, 25);
+            } else if (o.status === 'processing') {
+                o.timer--;
+                ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.roundRect(o.x, o.y + 85, PROD_W, 10, 5); ctx.fill();
+                ctx.fillStyle = "#FDFD96"; ctx.roundRect(o.x, o.y + 85, (1 - o.timer/60) * PROD_W, 10, 5); ctx.fill();
+                if (o.timer <= 0) { o.status = 'deciding'; o.processedImg = o.item + (Math.random() > 0.4 ? '_bgs' : '_rjk'); }
+            } else if (o.status === 'deciding') {
+                drawProductCard(o.processedImg, o.x, o.y, PROD_W, PROD_H);
+                ctx.fillStyle = "#77DD77"; ctx.beginPath(); ctx.roundRect(o.x-35, o.y+105, 75, 45, 10); ctx.fill();
+                ctx.fillStyle = "#A7C7E7"; ctx.beginPath(); ctx.roundRect(o.x+55, o.y+105, 75, 45, 10); ctx.fill();
+                drawStyledText("KIRIM", o.x + 2, o.y + 133, "bold 14px Segoe UI", "white");
+                drawStyledText("RETUR", o.x + 92, o.y + 133, "bold 14px Segoe UI", "white");
+            }
+        });
+
+        // HUD
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.beginPath(); ctx.roundRect(10, 10, 430, 65, 20); ctx.fill();
+        drawStyledText(`AMANAH: ${amanah}`, 75, 50, "bold 14px Segoe UI", "#A7C7E7");
+        drawStyledText(`BERKAH: ${berkah}`, 375, 50, "bold 14px Segoe UI", "#FDFD96");
+        drawStyledText(`${Math.ceil(timeLeft)}s`, 225, 50, "bold 24px Segoe UI", "white");
+
+        if (feedback.opacity > 0) {
+            ctx.save(); ctx.globalAlpha = Math.min(1, feedback.opacity);
+            drawStyledText(feedback.text, 225, 250, "bold 30px Segoe UI", feedback.color);
+            ctx.restore(); feedback.opacity -= 0.02;
+        }
+
+        timeLeft -= 1/60;
+        if(timeLeft <= 0 || amanah >= 150) endGame();
+        else requestAnimationFrame(update);
+    }
+
+    /* --- INPUT LOGIC --- */
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: (cx - rect.left) * (450 / rect.width), y: (cy - rect.top) * (800 / rect.height) };
+    };
+
+    canvas.addEventListener('mousedown', (e) => {
+        const pos = getPos(e);
+        orders.forEach(o => {
+            if (o.status === 'pending' && pos.x > o.x && pos.x < o.x + PROD_W && pos.y > o.y && pos.y < o.y + PROD_H) draggedOrder = o;
+            if (o.status === 'deciding') {
+                if (pos.y > o.y + 105 && pos.y < o.y + 150) {
+                    if (pos.x > o.x - 35 && pos.x < o.x + 40) handleDecision(o, 'kirim');
+                    if (pos.x > o.x + 55 && pos.x < o.x + 130) handleDecision(o, 'retur');
+                }
+            }
+        });
+    });
+
+    window.addEventListener('mousemove', (e) => { if (draggedOrder) { const pos = getPos(e); draggedOrder.x = pos.x - 25; draggedOrder.y = pos.y - 35; } });
+    window.addEventListener('mouseup', () => {
+        if (!draggedOrder) return;
+        const inBaju = (draggedOrder.x+25 > stores.baju.x && draggedOrder.x+25 < stores.baju.x + stores.baju.w && draggedOrder.y+35 > stores.baju.y && draggedOrder.y+35 < stores.baju.y + stores.baju.h);
+        const inElektro = (draggedOrder.x+25 > stores.elektro.x && draggedOrder.x+25 < stores.elektro.x + stores.elektro.w && draggedOrder.y+35 > stores.elektro.y && draggedOrder.y+35 < stores.elektro.y + stores.elektro.h);
+        if ((inBaju && draggedOrder.cat === 'baju') || (inElektro && draggedOrder.cat === 'elektro')) {
+            draggedOrder.status = 'processing'; draggedOrder.timer = 60;
+            draggedOrder.x = (inBaju ? stores.baju.x : stores.elektro.x) + 40; draggedOrder.y -= 100;
+        } else { draggedOrder.x = draggedOrder.homeX; draggedOrder.y = draggedOrder.homeY; }
+        draggedOrder = null;
+    });
+
+    function endGame() {
+        gameActive = false; document.getElementById('overlay').style.display = 'flex';
+        if(amanah >= 140) {
+            document.getElementById('over-title').innerText = "ALHAMDULILLAH!";
+            document.getElementById('over-msg').innerText = "Kamu pedagang online yang sangat amanah!";
+            document.getElementById('pin-box').style.display = 'block';
+            document.getElementById('pin-code').innerText = Math.floor(1000 + Math.random()*9000);
+        } else {
+            document.getElementById('over-title').innerText = "COBA LAGI";
+            document.getElementById('over-msg').innerText = "Tingkatkan lagi sifat amanahmu.";
+            document.getElementById('over-btn').onclick = () => location.reload();
+        }
+    }
+
+    // --- UPDATE FUNGSI finishGame ---
+    function finishGame() { 
+        const pinCode = document.getElementById('pin-code').innerText;
+        
+        // Kirim pesan ke Index2
+        window.parent.postMessage({
+            type: 'FINISH_ECOMMERCE',
+            amanah: amanah, // Variabel amanah dari game ini
+            berkah: berkah, // Variabel berkah dari game ini
+            pin: pinCode
+        }, '*');
+    }
+</script>
+</body>
+</html>

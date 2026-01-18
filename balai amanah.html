@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Balai Amanah - Ultimate Edition</title>
+    <style>
+        :root { 
+            --primary: #2ecc71; 
+            --highlight: #f1c40f;
+            --light-brown: #D2B48C;
+            --maroon: #800000;
+            --status-bg: rgba(0, 0, 0, 0.85); 
+        }
+        body, html { margin: 0; padding: 0; height: 100%; display: flex; justify-content: center; align-items: center; background-color: #1a1a1a; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; }
+        
+        #game-container { 
+            width: 100vw; height: 177.78vw; max-height: 100vh; max-width: 56.25vh; 
+            position: relative; overflow: hidden; background-color: #000; 
+            box-shadow: 0 0 50px rgba(0,0,0,1); 
+        }
+
+        /* Intro & Outro Screen */
+        .full-screen-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('balai.png') no-repeat center; background-size: cover;
+            z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0px;
+        }
+        .char-wali { width: 350px; margin-bottom: -250px; }
+        .speech-bubble {
+            background: white; border: 3px solid var(--maroon); border-radius: 15px;
+            padding: 15px; width: 85%; margin-bottom: 100px; text-align: center;
+            font-weight: bold; color: #333; position: relative; font-size: 14px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-family: 'Arial', sans-serif;
+        }
+	#intro-btn {
+    	    position: absolute;
+    	    bottom: 40px;     /* ubah sesuai selera */
+    	    left: 50%;
+    	    transform: translateX(-50%);
+	}
+
+        /* HUD */
+        #status-bar { 
+            position: absolute; top: 10px; width: 90%; left: 1%; 
+            display: flex; justify-content: space-between; 
+            background: var(--status-bg); color: #fff; 
+            padding: 10px; border-radius: 12px; z-index: 100; 
+            font-size: 11px; border: 2px solid var(--primary);
+        }
+        #status-bar b { color: var(--highlight); }
+
+        #tower-container { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 120px; height: 170px; z-index: 10; pointer-events: none; }
+        #tower-img-base { width: 100%; height: 100%; filter: grayscale(1) brightness(0.3); opacity: 0.6; }
+        #tower-fill { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: url('tower_amanah.png') no-repeat bottom; background-size: 120px 170px; transition: height 0.5s; }
+
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
+
+        /* Kontrol: Coklat & Marun */
+        #controls-row { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 18px; z-index: 100; }
+        .ctrl-btn { 
+            width: 40px; height: 40px; background: var(--light-brown); 
+            border: 3px solid var(--maroon); border-radius: 12px; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 28px; color: var(--maroon); cursor: pointer; user-select: none;
+            box-shadow: 0 4px 0px #8b7355;
+        }
+        .ctrl-btn:active { transform: translateY(3px); box-shadow: none; }
+
+        /* Kuis Overlay */
+        .overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 500; display: none; 
+            flex-direction: column; justify-content: center; align-items: center; 
+            padding: 0px; color: white;
+        }
+        #q-text { 
+            font-size: 14px; margin-bottom: 20px; line-height: 1.4;
+            text-align: center; width: 90%; font-family: 'Arial', sans-serif; 
+            max-height: 40vh; overflow-y: auto; /* Memastikan soal panjang tetap in-frame */
+        }
+        .q-btn { width: 90%; padding: 12px; margin: 12px 0; border: 2px solid #fff; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; color: #fff; background: #34495e; text-align: center; }
+
+	#q-options {
+   	    width: 100%;
+    	    display: flex;
+            flex-direction: column;
+            align-items: center;  /* tombol benar-benar tengah */
+        }
+
+        @keyframes blink-green { 0%, 100% { background: var(--primary); } 50% { background: #fff; color: #000; } }
+        .blink-correct { animation: blink-green 0.2s 3; }
+
+        #streak-msg { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: var(--highlight); font-weight: bold; font-size: 24px; text-shadow: 2px 2px 0 #000; z-index: 200; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center; width: 90%; }
+        .action-btn { background: var(--maroon); color: white; border: none; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="intro-screen" class="full-screen-overlay">
+        <img src="crt_wali.png" class="char-wali">
+        <div class="speech-bubble" id="intro-text">Assalamualaikum! Misimu tinggal selangkah lagi. Tugasmu saat ini adalah mengisi Menara Amanah dengan menjawab kuis muamalah.</div>
+        <button class="action-btn" id="intro-btn" onclick="nextIntro()">Lanjutkan</button>
+    </div>
+
+    <div id="outro-screen" class="full-screen-overlay" style="display: none; opacity: 0; transition: opacity 2s;">
+        <img src="crt_wali.png" class="char-wali">
+        <div class="speech-bubble" id="outro-text"></div>
+        <button class="action-btn" onclick="location.reload()">Main Lagi</button>
+    </div>
+
+    <div id="status-bar">
+        <span>AMANAH: <b id="val-amanah">100</b></span>
+        <span>BERKAH: <b id="val-berkah">0</b></span>
+        <span>STREAK: <b id="val-streak">0</b></span>
+    </div>
+
+    <div id="tower-container">
+        <img src="tower_amanah.png" id="tower-img-base">
+        <div id="tower-fill"></div>
+    </div>
+    <div id="streak-msg"></div>
+
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="controls-row">
+        <div class="ctrl-btn" onmousedown="moveDir='up'" onmouseup="moveDir=null" ontouchstart="moveDir='up'" ontouchend="moveDir=null">↑</div>
+        <div class="ctrl-btn" onmousedown="moveDir='left'" onmouseup="moveDir=null" ontouchstart="moveDir='left'" ontouchend="moveDir=null">←</div>
+        <div class="ctrl-btn" onmousedown="moveDir='down'" onmouseup="moveDir=null" ontouchstart="moveDir='down'" ontouchend="moveDir=null">↓</div>
+        <div class="ctrl-btn" onmousedown="moveDir='right'" onmouseup="moveDir=null" ontouchstart="moveDir='right'" ontouchend="moveDir=null">→</div>
+    </div>
+
+    <div id="quiz-overlay" class="overlay">
+        <h2 id="q-title" style="color:var(--highlight); font-size: 18px;">KUIS MUAMALAH</h2>
+        <p id="q-text"></p>
+        <div id="q-options" style="width:100%"></div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 360; canvas.height = 640;
+
+    const MAZE_WIDTH = 305;
+    const OFFSET_X = (360 - MAZE_WIDTH) / 2;
+    const TILE_SIZE = MAZE_WIDTH / 22;
+    const OFFSET_Y = 175;
+
+    const gridMap = [[1,1,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,1,1,1],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,0],[0,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,0],[0,1,1,1,0,1,1,1,0,1,0,0,0,0,0,1,1,1,1,1,1,0],[0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,1,1,1,0],[0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0],[0,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0],[0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,1,0,0,0,0,1,0],[0,1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,0,1,0],[0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,0],[0,0,0,1,1,1,1,1,1,0,1,1,1,0,0,0,1,1,1,0,0,0],[0,1,0,0,0,0,0,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0],[0,1,0,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0],[0,1,0,0,0,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0],[0,1,1,1,1,1,1,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0],[0,1,0,0,0,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0],[0,1,0,1,1,0,0,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0],[0,1,0,1,1,1,0,0,0,0,0,0,1,0,1,1,1,1,0,0,1,0],[0,1,0,0,0,0,0,1,1,1,0,1,1,0,1,0,0,0,0,0,1,0],[0,1,0,1,1,1,0,1,0,0,0,1,0,0,1,1,1,1,1,0,1,0],[0,1,0,1,1,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0,1,0],[0,1,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,1,0,1,0],[0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]];
+
+    const assets = { bg: 'maze.png', player: 'crt_top.png', setan: 'setan.png', paket: 'paket.png', crt2: 'crt_top2.png', crt3: 'crt_top3.png' };
+    const imgs = {};
+    for(let k in assets) { imgs[k] = new Image(); imgs[k].src = assets[k]; }
+
+    // DATA KUIS LENGKAP (1-10)
+    const quizPaket = [
+        { q: "Yang termasuk contoh riba dalam hutang piutang adalah...", a: ["Meminjam uang dengan tambahan bunga tertentu", "Meminjam uang tanpa biaya tambahan", "Meminjam barang sejenis", "Membantu tanpa imbalan"], c: 0 },
+        { q: "Firman Allah SWT yang melarang riba terdapat dalam surat...", a: ["QS. Al-Baqarah ayat 275", "QS. An-Nisa' ayat 34", "QS. Al-Hujurat 13", "QS. Ar-Rum 21"], c: 0 },
+        { q: "Secara bahasa Al Bay'u artinya...", a: ["Mengambil", "Memberi", "Menolak", "Menerima"], c: 0 },
+        { q: "Sifat dapat dipercaya dalam Islam disebut...", a: ["Amanah", "Siddiq", "Fathanah", "Tabligh"], c: 0 },
+        { q: "Dampak negatif riba bagi masyarakat adalah...", a: ["Menindas dan merugikan orang lain", "Meningkatkan keadilan", "Mempererat persaudaraan", "Menumbuhkan kejujuran"], c: 0 },
+        { q: "Cara terhindar dari riba adalah...", a: ["Bertransaksi sesuai syariat Islam", "Meminjam dengan bunga", "Mengutamakan untung besar", "Menunda pembayaran"], c: 0 },
+        { q: "Sikap tidak amanah dapat mengakibatkan...", a: ["Hilangnya kepercayaan orang lain", "Kepercayaan meningkat", "Hubungan harmonis", "Pekerjaan cepat"], c: 0 }
+    ];
+
+    const quizCharacter = [
+        { q: "Aku pinjam 20rb, besok balik 25rb. Sebagai teman yang baik apa yang kamu lakukan?", a: ["Menolak tambahan dan meminjamkan 20rb tanpa kelebihan", "Menerima karena menguntungkan", "Menyarankan pinjam ke orang lain", "Menunda membantu"], c: 0 },
+        { q: "Pinjam 10rb sekarang, balik 10rb besok. Ini termasuk transaksi apa?", a: ["Qard, karena pinjam tanpa tambahan", "Riba Nasi’ah", "Riba Fadl", "Jual beli"], c: 0 },
+        { q: "Utang belum lunas, diberi waktu 1 minggu tapi jumlah jadi dua kali lipat. Ini termasuk?", a: ["Riba Jahiliyah (Tambahan karena terlambat)", "Riba Fadl", "Riba Nasi’ah", "Bukan riba"], c: 0 }
+    ];
+
+    let introStep = 0, moveDir = null, amanah = 100, berkah = 0, itemsFound = 0, streak = 0, isPaused = true;
+    let powerStopTime = 0, currentInteractingIndex = -1, isInvulnerable = false, invulTimer = 0;
+    let floatingTexts = [];
+    const player = { x: 175, y: 560, size: 14, speed: 2.2 };
+
+    let enemies = [{ x: 40, y: 190, dx: 1.5 }, { x: 290, y: 285, dx: -1.5 }];
+    // Item Paket (7) & Karakter (3)
+    let interactables = [
+        {x: 95, y: 295, t:'paket'}, {x: 180, y: 220, t:'crt2'}, {x: 120, y: 240, t:'paket'}, {x: 200, y: 280, t:'crt3'}, {x: 63, y: 340, t:'paket'}, {x: 295, y: 340, t:'paket'}, {x: 160, y: 460, t:'crt2'}, {x: 245, y: 472, t:'paket'}, {x: 90, y: 510, t:'crt3'}, {x: 200, y: 392, t:'paket'}];
+
+    function nextIntro() {
+        introStep++;
+        const text = document.getElementById('intro-text');
+        if(introStep === 1) text.innerHTML = "Waspada! Setan akan mencoba mencuri poinmu. Gunakan tombol panah untuk menghindar.";
+        else if(introStep === 2) { text.innerHTML = "Jawab kuis dengan benar untuk mendapatkan STREAK dan mengisi Menara Amanah!"; document.getElementById('intro-btn').innerText = "MULAI"; }
+        else { document.getElementById('intro-screen').style.display = 'none'; isPaused = false; }
+    }
+
+    function checkWall(x, y) {
+        let gx = Math.floor((x - OFFSET_X) / TILE_SIZE);
+        let gy = Math.floor((y - OFFSET_Y) / TILE_SIZE);
+        return (gridMap[gy] && gridMap[gy][gx] === 1);
+    }
+
+    function safeBacktrack() {
+        player.y += 40;
+        if (checkWall(player.x, player.y)) { player.y = 560; player.x = 175; }
+    }
+
+    function spawnFloatingText(x, y, txt) { floatingTexts.push({ x: x, y: y, txt: txt, life: 60 }); }
+
+    function addNewEnemy() {
+        const paths = [190, 285, 390, 485];
+        let ry = paths[Math.floor(Math.random() * paths.length)];
+        enemies.push({ x: 30, y: ry, dx: 1.8 });
+    }
+
+    function update() {
+        if (isPaused) return;
+        if (moveDir) {
+            let nx = player.x, ny = player.y;
+            if (moveDir === 'up') ny -= player.speed;
+            if (moveDir === 'down') ny += player.speed;
+            if (moveDir === 'left') nx -= player.speed;
+            if (moveDir === 'right') nx += player.speed;
+            if (!checkWall(nx + 4, ny + 4) && !checkWall(nx + 10, ny + 10)) { player.x = nx; player.y = ny; }
+        }
+
+        if (isInvulnerable && Date.now() > invulTimer) isInvulnerable = false;
+
+        const frozen = Date.now() < powerStopTime;
+        enemies.forEach(e => {
+            if (!frozen) {
+                let nx = e.x + e.dx;
+                if (checkWall(nx + 10, e.y + 10) || nx < 15 || nx > 330) e.dx *= -1; 
+                else e.x = nx;
+            }
+            if (!isInvulnerable && Math.hypot(e.x - player.x, e.y - player.y) < 16) {
+                amanah -= 1; streak = 0; isInvulnerable = true; invulTimer = Date.now() + 1500;
+                spawnFloatingText(player.x, player.y, "-1"); updateUI();
+            }
+        });
+
+        interactables.forEach((it, i) => {
+            if (Math.hypot(it.x - player.x, it.y - player.y) < 13) { currentInteractingIndex = i; showQuiz(it.t); }
+        });
+
+        floatingTexts.forEach((ft, i) => { ft.y -= 1; ft.life--; if (ft.life <= 0) floatingTexts.splice(i, 1); });
+        
+        if (itemsFound === 10 && player.y < 210) showOutro();
+        if (amanah <= 0) { alert("Amanah Habis!"); location.reload(); }
+    }
+
+    function showQuiz(type) {
+        isPaused = true; moveDir = null;
+        // Pilih pool soal berdasarkan tipe item
+        const pool = (type === 'paket') ? quizPaket : quizCharacter;
+        const qData = pool[Math.floor(Math.random() * pool.length)];
+        const correctText = qData.a[qData.c];
+        let options = [...qData.a].sort(() => Math.random() - 0.5);
+        
+        document.getElementById('q-title').innerText = (type === 'paket') ? "KUIS PAKET" : "KUIS KARAKTER";
+        document.getElementById('q-text').innerText = qData.q;
+        const optContainer = document.getElementById('q-options');
+        optContainer.innerHTML = '';
+        
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'q-btn';
+            btn.innerText = opt;
+            btn.onclick = () => {
+                if (opt === correctText) {
+                    btn.classList.add('blink-correct');
+                    setTimeout(() => {
+                        amanah += 10; berkah += 10; itemsFound++; streak++;
+                        interactables.splice(currentInteractingIndex, 1);
+                        document.getElementById('tower-fill').style.height = (itemsFound * 10) + "%";
+                        handleStreak();
+                        closeQuiz();
+                    }, 800);
+                } else {
+                    amanah -= 5; streak = 0;
+                    safeBacktrack(); addNewEnemy();
+                    showMsg("SALAH! AMANAH -5 & SETAN BERTAMBAH");
+                    closeQuiz();
+                }
+            };
+            optContainer.appendChild(btn);
+        });
+        document.getElementById('quiz-overlay').style.display = 'flex';
+    }
+
+    function handleStreak() {
+        if (streak === 2) { powerStopTime = Date.now() + 5000; showMsg("STREAK 2x: SETAN BERHENTI!"); }
+        else if (streak === 5) { if (enemies.length > 0) enemies.pop(); showMsg("STREAK 5x: 1 SETAN HILANG!"); }
+        else if (streak === 10) { amanah += 100; showMsg("STREAK 10x: MEGA BONUS!"); }
+        updateUI();
+    }
+
+    function closeQuiz() { document.getElementById('quiz-overlay').style.display = 'none'; updateUI(); isPaused = false; }
+    function showMsg(t) { const m = document.getElementById('streak-msg'); m.innerText = t; m.style.opacity = 1; setTimeout(() => m.style.opacity = 0, 2000); }
+    function updateUI() { document.getElementById('val-amanah').innerText = amanah; document.getElementById('val-berkah').innerText = berkah; document.getElementById('val-streak').innerText = streak; }
+
+    function showOutro() {
+        isPaused = true;
+        const screen = document.getElementById('outro-screen');
+        document.getElementById('outro-text').innerHTML = `Misi Selesai!<br>Poin Amanah: ${amanah}<br>Poin Berkah: ${berkah}<br>Gelar: Pejuang Amanah`;
+        screen.style.display = 'flex';
+        setTimeout(() => screen.style.opacity = "1", 100);
+
+        // --- TAMBAHAN: UBAH TOMBOL AGAR MENGAKHIRI GAME KE INDEX2 ---
+        // Cari tombol di dalam outro-screen dan ubah onclick-nya secara dinamis atau edit HTML-nya
+        const btn = screen.querySelector('button');
+        btn.innerText = "LIHAT HASIL AKHIR";
+        btn.onclick = function() {
+            window.parent.postMessage({
+                type: 'FINISH_BALAI',
+                amanah: amanah,
+                berkah: berkah
+            }, '*');
+        };
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, 360, 640);
+        ctx.drawImage(imgs.bg, 0, 0, 360, 640);
+        interactables.forEach(it => ctx.drawImage(imgs[it.t], it.x - 10, it.y - 10, 20, 20));
+        enemies.forEach(e => ctx.drawImage(imgs.setan, e.x, e.y, 22, 22));
+        
+        ctx.save();
+        if (isInvulnerable && Math.floor(Date.now() / 100) % 2 === 0) ctx.globalAlpha = 0.3;
+        ctx.drawImage(imgs.player, player.x, player.y, player.size, player.size);
+        ctx.restore();
+
+        floatingTexts.forEach(ft => {
+            ctx.font = "bold 18px Arial"; ctx.fillStyle = "red";
+            ctx.fillText(ft.txt, ft.x, ft.y);
+        });
+        update();
+        requestAnimationFrame(draw);
+    }
+    draw();
+</script>
+</body>
+</html>
